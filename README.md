@@ -17,6 +17,9 @@ Run the program interactively to prompt for video input and parameters, or use c
 - `-e`, `--extension` (default="*.mp4"): File extensions to process
 - `-s`, `--preset` (default="veryslow"): Encoding preset (`ultrafast`, `fast`, `medium`, `slow`, `veryslow`)
 
+## Prerequisites
+FFmpeg and FFprobe available on path
+
 ## To-Do List
 ### Should-Do:
 - Allow choice of audio codec, channels, and bitrate
@@ -25,6 +28,7 @@ Run the program interactively to prompt for video input and parameters, or use c
 - Improve QOL by allowing a custom output folder
 
 ### Would-Be-Nice:
+- Choose ffmpeg/ffprobe folder (for non-path installations)
 - Option to generate only sampling (skip lossless counterpart)
 - Maintain aspect ratio adjustments (auto or manual)
 - Bitrate calculation based on quality metrics instead of CRF
