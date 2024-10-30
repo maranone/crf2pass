@@ -17,7 +17,10 @@ Run the program interactively to prompt for video input and parameters, or use c
 - `-e`, `--extension` (default="*.mp4"): File extensions to process
 - `-s`, `--preset` (default="veryslow"): Encoding preset (`ultrafast`, `fast`, `medium`, `slow`, `veryslow`)
 
+### Screenshots
+
 ![Execution without args](screenshot.jpg)
+
 ![Unattended](unattended.jpg)
 
 ## Prerequisites
