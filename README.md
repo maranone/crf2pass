@@ -26,6 +26,7 @@ FFmpeg and FFprobe available on path
 - Set custom frame rate, profile, and tuning options
 - Support additional video types
 - Improve QOL by allowing a custom output folder
+- Yes, yes, code cleaning
 
 ### Would-Be-Nice:
 - Choose ffmpeg/ffprobe folder (for non-path installations)
