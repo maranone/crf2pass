@@ -29,7 +29,7 @@ FFmpeg and FFprobe available on path
 ## To-Do List
 ### Should-Do:
 - Allow choice of audio codec, channels, and bitrate
-- Set custom frame rate, profile, and tuning options
+- Set custom <del>frame rate</del>, profile, and tuning options
 - Support additional video types
 - Improve QOL by allowing a custom output folder
 - Yes, yes, code cleaning
