@@ -16,6 +16,7 @@ Run the program interactively to prompt for video input and parameters, or use c
 - `-y`, `--resy` (int, default=480): Vertical resolution (e.g., 480)
 - `-e`, `--extension` (default="*.mp4"): File extensions to process
 - `-s`, `--preset` (default="veryslow"): Encoding preset (`ultrafast`, `fast`, `medium`, `slow`, `veryslow`)
+- `-f`, `--fps` (int, default=24): Frames per second (e.g., 24)
 
 ### Screenshots
 
