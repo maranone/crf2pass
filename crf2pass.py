@@ -48,19 +48,19 @@ def monitor_ffmpeg(operation_description, process, total_duration):
                     else:
                         print(f"\r{operation_description}, Progress: {current_time}/{total_duration} (Speed N/A)", end='', flush=True)
     process.wait()
-def two_pass_encode(input_file, output_file, video_bitrate, audio_bitrate, libx_value, resx, resy, preset):
+def two_pass_encode(input_file, output_file, video_bitrate, audio_bitrate, libx_value, resx, resy, preset, fps):
     total_duration = get_video_duration(input_file)
     base_cmd = [
         "ffmpeg", "-v", "quiet", "-stats",
         "-y", "-i", input_file,
         "-c:v", libx_value, "-b:v", f"{video_bitrate}k",
-        "-vf", f"scale={resx}x{resy}:flags=lanczos", "-preset", preset
+        "-vf", f"scale={resx}x{resy}:flags=lanczos,fps={fps},tblend", "-preset", preset
     ]
     process = subprocess.Popen(base_cmd + ["-pass", "1", "-an", "-f", "null", "NUL"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     monitor_ffmpeg(f"\rStep 5/6: Pass 1/2", process, total_duration)
     process = subprocess.Popen(base_cmd + ["-pass", "2", "-c:a", "libopus", "-b:a", f"{audio_bitrate/2}k", "-ac", "2", output_file], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     monitor_ffmpeg(f"\rStep 6/6: Pass 2/2", process, total_duration)
-def generate_video_chunks(video_file, temp_dir, interval, chunk_duration, resx, resy, codec, crf, monitor_ffmpeg, output_file, current_step, preset):
+def generate_video_chunks(video_file, temp_dir, interval, chunk_duration, resx, resy, codec, crf, monitor_ffmpeg, output_file, current_step, preset, fps):
     chunk_files = []
     for i in range(10):  # Adjust range based on how many chunks you need
         start_time = i * interval
@@ -69,7 +69,7 @@ def generate_video_chunks(video_file, temp_dir, interval, chunk_duration, resx, 
             "ffmpeg", "-v", "quiet", "-stats",
             "-ss", str(start_time), "-i", video_file,
             "-t", str(chunk_duration),
-            "-vf", f"scale={resx}x{resy}:flags=lanczos",
+            "-filter_complex", f"scale={resx}x{resy}:flags=lanczos,fps={fps},tblend",
             "-c:v", codec, "-crf", str(crf),
             "-preset", str(preset), "-pix_fmt", "yuv420p",
             "-c:a", "aac", "-ac", "2", "-q:a", "1.5",
@@ -108,7 +108,7 @@ def calculate_psnr(file1, file2):
         return f"PSNR: {round(normalized_psnr)}/100, SSIM: {round(normalized_ssim)}/100, Quality Score: {round(combined_score)}/100"
     else:
         return None
-def start_sampling(input_path, percentage, crf, codec, resx, resy, extension, preset):
+def start_sampling(input_path, percentage, crf, codec, resx, resy, extension, preset, fps):
     if os.path.isfile(input_path):
         video_files = [input_path]
     else:
@@ -127,8 +127,8 @@ def start_sampling(input_path, percentage, crf, codec, resx, resy, extension, pr
         os.makedirs(temp_dir, exist_ok=True)
         output_file = "sampled_output.mp4"
         crf0_file = "crf0_output.mp4"
-        generate_video_chunks(video_file, temp_dir, interval, chunk_duration, resx, resy, codec, crf, monitor_ffmpeg, output_file, 1, preset)
-        generate_video_chunks(video_file, temp_dir, interval, chunk_duration, resx, resy, codec, 0, monitor_ffmpeg, crf0_file, 3, "ultrafast")
+        generate_video_chunks(video_file, temp_dir, interval, chunk_duration, resx, resy, codec, crf, monitor_ffmpeg, output_file, 1, preset, fps)
+        generate_video_chunks(video_file, temp_dir, interval, chunk_duration, resx, resy, codec, 0, monitor_ffmpeg, crf0_file, 3, "ultrafast", fps)
         psnr_result = calculate_psnr(crf0_file, output_file)
         video_bitrate, audio_bitrate = get_bitrate(output_file)
         print(f'\rResults for CRF{str(crf)}, VB:{round(video_bitrate / 1000)}k AB:{round(audio_bitrate / 1000)}k, {psnr_result}\n'.ljust(100), end='', flush=True)
@@ -136,7 +136,7 @@ def start_sampling(input_path, percentage, crf, codec, resx, resy, extension, pr
         list(map(os.remove, ["concat_list.txt", output_file, crf0_file]))
         base_name, ext = os.path.splitext(video_file)
         final_output_file = f"{base_name}_v{round(video_bitrate / 1000)}k_a{round(audio_bitrate / 2000)}k.mp4"
-        two_pass_encode(video_file, final_output_file, round(video_bitrate / 1000), round(audio_bitrate / 1000), codec, resx, resy, preset)
+        two_pass_encode(video_file, final_output_file, round(video_bitrate / 1000), round(audio_bitrate / 1000), codec, resx, resy, preset, fps)
         [os.remove(file) for file in ["ffmpeg2pass-0.log", "ffmpeg2pass-0.log.mbtree"] if os.path.exists(file)]
     print(f'\rGetting this message probably means the program somehow managed to get to the last line of code'.ljust(100), end='', flush=True)
 def get_user_inputs():
@@ -149,7 +149,8 @@ def get_user_inputs():
     resx = int(input("Enter Horizontal Resolution (e.g., 640): "))
     resy = int(input("Enter Vertical Resolution (e.g., 480): "))
     preset = input("Enter Preset (e.g., ultrafast, fast, medium, slow, veryslow): ")
-    return input_path, percentage, crf, codec, resx, resy, preset
+    fps = input("Enter frames per second (e.g., 15, 24, 30, 60): ")
+    return input_path, percentage, crf, codec, resx, resy, preset, fps
 parser = argparse.ArgumentParser(description="CRF (to) 2 Pass: Generating a 2 Pass with Bitrate from CRF Sampling")
 parser.add_argument("input_path", nargs="?", help="Path to a video file or folder containing video files")
 parser.add_argument("-p", "--percentage", type=float, default=5.0, help="Sample percentage (1-100)")
@@ -159,10 +160,11 @@ parser.add_argument("-x", "--resx", type=int, default=640, help="Horizontal reso
 parser.add_argument("-y", "--resy", type=int, default=480, help="Vertical resolution (e.g., 480)")
 parser.add_argument("-e", "--extension", default="*.mp4", help="Extensions to process")
 parser.add_argument("-s", "--preset", default="veryslow", help="ultrafast, fast, medium, slow, veryslow")
+parser.add_argument("-f", "--fps", type=int, default=24, help="Frames per second (e.g., 24)")
 args = parser.parse_args()
 if not args.input_path:
         print(f'Unattended usage example: crf2pass ./video_input_folder --crf 21 --resx 1024 --resy 768 --percentage 10')
-        args.input_path, args.percentage, args.crf, args.codec, args.resx, args.resy, args.preset = get_user_inputs()
+        args.input_path, args.percentage, args.crf, args.codec, args.resx, args.resy, args.preset, args.fps = get_user_inputs()
         if not args.input_path:
             print("No file selected, exiting.")
 input_path = args.input_path
@@ -173,4 +175,5 @@ resx = args.resx
 resy = args.resy
 extension = args.extension
 preset = args.preset
-start_sampling(input_path, percentage, crf, codec, resx, resy, extension, preset)
+fps = args.fps
+start_sampling(input_path, percentage, crf, codec, resx, resy, extension, preset, fps)
